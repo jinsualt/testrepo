@@ -68,10 +68,19 @@
             border: 2px solid #ddd;
             border-radius: 8px;
             background: #fafafa;
-            cursor: crosshair;
             display: block;
             width: 100%;
             height: auto;
+            cursor: crosshair;
+        }
+
+        .canvas-instructions {
+            font-size: 11px;
+            color: #666;
+            background: #f0f0f0;
+            padding: 8px;
+            border-radius: 4px;
+            line-height: 1.4;
         }
         
         .controls-section {
@@ -238,6 +247,12 @@
         <div class="content">
             <div class="canvas-section">
                 <canvas id="canvas" width="500" height="500"></canvas>
+                <div class="canvas-instructions">
+                    <strong>Canvas Controls:</strong><br>
+                    • Drag points to move them<br>
+                    • Right-click + drag to pan the plane<br>
+                    • Scroll to zoom in/out
+                </div>
                 <div class="legend">
                     <div class="legend-item">
                         <div class="legend-color" style="background: #ff6b6b;"></div>
@@ -328,25 +343,6 @@
                 </div>
                 
                 <div class="control-group">
-                    <h3>View Settings</h3>
-                    <div class="control-item">
-                        <label>Zoom</label>
-                        <input type="range" id="zoom" min="0.5" max="3" step="0.1" value="1">
-                        <div class="value-display" id="zoomVal">1.0x</div>
-                    </div>
-                    <div class="control-item">
-                        <label>Pan X</label>
-                        <input type="range" id="panX" min="-200" max="200" step="5" value="0">
-                        <div class="value-display" id="panXVal">0</div>
-                    </div>
-                    <div class="control-item">
-                        <label>Pan Y</label>
-                        <input type="range" id="panY" min="-200" max="200" step="5" value="0">
-                        <div class="value-display" id="panYVal">0</div>
-                    </div>
-                </div>
-                
-                <div class="control-group">
                     <h3>Information</h3>
                     <div class="info-box">
                         <strong>Cayley-Bacharach Theorem:</strong>
@@ -367,66 +363,81 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        
-        // Get all slider inputs
+
+        let viewState = {
+            zoom: 1,
+            panX: 0,
+            panY: 0,
+            isDraggingPoint: false,
+            draggedPointIndex: -1,
+            isRightDragging: false,
+            lastMouseX: 0,
+            lastMouseY: 0
+        };
+
+        let intersectionPoints = [];
+
         const sliders = {};
-        ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'zoom', 'panX', 'panY'].forEach(id => {
+        ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2'].forEach(id => {
             sliders[id] = document.getElementById(id);
             sliders[id].addEventListener('input', updateDisplay);
             sliders[id].addEventListener('input', () => updateValueDisplay(id));
         });
-        
+
         function updateValueDisplay(id) {
             const val = parseFloat(sliders[id].value);
             const display = document.getElementById(id + 'Val');
-            if (id === 'zoom') {
-                display.textContent = val.toFixed(1) + 'x';
-            } else if (id.startsWith('pan')) {
-                display.textContent = val.toFixed(0);
-            } else {
-                display.textContent = val.toFixed(1);
-            }
+            display.textContent = val.toFixed(1);
         }
-        
+
+        function worldToScreen(x, y) {
+            const scale = 50 / viewState.zoom;
+            return {
+                screenX: canvas.width / 2 + x * scale + viewState.panX,
+                screenY: canvas.height / 2 + y * scale + viewState.panY
+            };
+        }
+
+        function screenToWorld(screenX, screenY) {
+            const scale = 50 / viewState.zoom;
+            return {
+                x: (screenX - canvas.width / 2 - viewState.panX) / scale,
+                y: (screenY - canvas.height / 2 - viewState.panY) / scale
+            };
+        }
+
         function cubicValue(x, y, a, b, c, d, e, f) {
             return a * x * x * x + b * y * y * y + c * x * y + d * x + e * y + f;
         }
-        
+
         function drawCurve(a, b, c, d, e, f, color, width = 2) {
-            const scale = 50 / parseFloat(sliders.zoom.value);
-            const panX = parseInt(sliders.panX.value);
-            const panY = parseInt(sliders.panY.value);
-            
+            ctx.beginPath();
             ctx.strokeStyle = color;
             ctx.lineWidth = width;
-            ctx.beginPath();
-            
+
             let started = false;
-            const step = 1;
-            
+            const step = 0.75;
+
             for (let px = 0; px < canvas.width; px += step) {
                 for (let py = 0; py < canvas.height; py += step) {
-                    const x = (px - canvas.width / 2 + panX) / scale;
-                    const y = (py - canvas.height / 2 + panY) / scale;
-                    
-                    const val = cubicValue(x, y, a, b, c, d, e, f);
-                    
-                    if (Math.abs(val) < 0.3) {
-                        const screenX = px;
-                        const screenY = py;
-                        
+                    const world = screenToWorld(px, py);
+                    const val = cubicValue(world.x, world.y, a, b, c, d, e, f);
+
+                    if (Math.abs(val) < 0.4) {
+                        const sx = px;
+                        const sy = py;
                         if (!started) {
-                            ctx.moveTo(screenX, screenY);
+                            ctx.moveTo(sx, sy);
                             started = true;
                         } else {
-                            ctx.lineTo(screenX, screenY);
+                            ctx.lineTo(sx, sy);
                         }
                     }
                 }
             }
             ctx.stroke();
         }
-        
+
         function findIntersectionPoints() {
             const a1 = parseFloat(sliders.a1.value);
             const b1 = parseFloat(sliders.b1.value);
@@ -434,67 +445,61 @@
             const d1 = parseFloat(sliders.d1.value);
             const e1 = parseFloat(sliders.e1.value);
             const f1 = parseFloat(sliders.f1.value);
-            
+
             const a2 = parseFloat(sliders.a2.value);
             const b2 = parseFloat(sliders.b2.value);
             const c2 = parseFloat(sliders.c2.value);
             const d2 = parseFloat(sliders.d2.value);
             const e2 = parseFloat(sliders.e2.value);
             const f2 = parseFloat(sliders.f2.value);
-            
+
             const points = [];
-            const scale = 50 / parseFloat(sliders.zoom.value);
-            const panX = parseInt(sliders.panX.value);
-            const panY = parseInt(sliders.panY.value);
-            
             const tolerance = 0.15;
             const step = 2;
-            
+
             for (let px = 0; px < canvas.width; px += step) {
                 for (let py = 0; py < canvas.height; py += step) {
-                    const x = (px - canvas.width / 2 + panX) / scale;
-                    const y = (py - canvas.height / 2 + panY) / scale;
-                    
+                    const world = screenToWorld(px, py);
+                    const x = world.x;
+                    const y = world.y;
                     const val1 = cubicValue(x, y, a1, b1, c1, d1, e1, f1);
                     const val2 = cubicValue(x, y, a2, b2, c2, d2, e2, f2);
-                    
+
                     if (Math.abs(val1) < tolerance && Math.abs(val2) < tolerance) {
-                        const isDuplicate = points.some(p => Math.abs(p.x - x) < 0.2 && Math.abs(p.y - y) < 0.2);
-                        if (!isDuplicate) {
-                            points.push({ x, y, px, py });
+                        const duplicate = points.some(p => Math.abs(p.x - x) < 0.2 && Math.abs(p.y - y) < 0.2);
+                        if (!duplicate) {
+                            points.push({ x, y });
                         }
                     }
                 }
             }
-            
+
             return points;
         }
-        
+
         function drawPoints(points, color, radius = 6) {
             ctx.fillStyle = color;
             points.forEach(p => {
+                const screen = worldToScreen(p.x, p.y);
                 ctx.beginPath();
-                ctx.arc(p.px, p.py, radius, 0, Math.PI * 2);
+                ctx.arc(screen.screenX, screen.screenY, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = 'white';
                 ctx.lineWidth = 1;
                 ctx.stroke();
             });
         }
-        
+
         function updateDisplay() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw grid
+
+            const scale = 50 / viewState.zoom;
+
             ctx.strokeStyle = '#f0f0f0';
             ctx.lineWidth = 1;
-            const scale = 50 / parseFloat(sliders.zoom.value);
-            const panX = parseInt(sliders.panX.value);
-            const panY = parseInt(sliders.panY.value);
-            
             for (let i = -500; i < 500; i += 50) {
-                const x = canvas.width / 2 + i - panX;
-                const y = canvas.height / 2 + i - panY;
+                const x = canvas.width / 2 + i * scale + viewState.panX;
+                const y = canvas.height / 2 + i * scale + viewState.panY;
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
@@ -504,68 +509,134 @@
                 ctx.lineTo(canvas.width, y);
                 ctx.stroke();
             }
-            
-            // Draw axes
+
             ctx.strokeStyle = '#ccc';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(canvas.width / 2 + panX, 0);
-            ctx.lineTo(canvas.width / 2 + panX, canvas.height);
+            ctx.moveTo(canvas.width / 2 + viewState.panX, 0);
+            ctx.lineTo(canvas.width / 2 + viewState.panX, canvas.height);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(0, canvas.height / 2 + panY);
-            ctx.lineTo(canvas.width, canvas.height / 2 + panY);
+            ctx.moveTo(0, canvas.height / 2 + viewState.panY);
+            ctx.lineTo(canvas.width, canvas.height / 2 + viewState.panY);
             ctx.stroke();
-            
-            // Draw cubics
+
             const a1 = parseFloat(sliders.a1.value);
             const b1 = parseFloat(sliders.b1.value);
             const c1 = parseFloat(sliders.c1.value);
             const d1 = parseFloat(sliders.d1.value);
             const e1 = parseFloat(sliders.e1.value);
             const f1 = parseFloat(sliders.f1.value);
-            
+
             const a2 = parseFloat(sliders.a2.value);
             const b2 = parseFloat(sliders.b2.value);
             const c2 = parseFloat(sliders.c2.value);
             const d2 = parseFloat(sliders.d2.value);
             const e2 = parseFloat(sliders.e2.value);
             const f2 = parseFloat(sliders.f2.value);
-            
+
             drawCurve(a1, b1, c1, d1, e1, f1, '#ff6b6b', 2.5);
             drawCurve(a2, b2, c2, d2, e2, f2, '#4ecdc4', 2.5);
-            
-            // Find and draw intersection points
-            const points = findIntersectionPoints();
-            drawPoints(points, '#ffd93d', 5);
-            
-            // Calculate and display the 9th point (centroid of first 8)
-            if (points.length >= 8) {
-                const first8 = points.slice(0, 8);
+
+            intersectionPoints = findIntersectionPoints();
+            drawPoints(intersectionPoints, '#ffd93d', 5);
+
+            if (intersectionPoints.length >= 8) {
+                const first8 = intersectionPoints.slice(0, 8);
                 const centroidX = first8.reduce((sum, p) => sum + p.x, 0) / 8;
                 const centroidY = first8.reduce((sum, p) => sum + p.y, 0) / 8;
-                const scale = 50 / parseFloat(sliders.zoom.value);
-                const panX = parseInt(sliders.panX.value);
-                const panY = parseInt(sliders.panY.value);
-                const ninth = {
-                    x: centroidX,
-                    y: centroidY,
-                    px: canvas.width / 2 + centroidX * scale - panX,
-                    py: canvas.height / 2 + centroidY * scale - panY
-                };
-                drawPoints([ninth], '#95e1d3', 7);
+                drawPoints([{ x: centroidX, y: centroidY }], '#95e1d3', 7);
             }
-            
-            // Update point info
+
             const pointInfo = document.getElementById('pointInfo');
-            if (points.length === 0) {
+            if (intersectionPoints.length === 0) {
                 pointInfo.innerHTML = '<em>No intersections found. Adjust coefficients.</em>';
             } else {
-                pointInfo.innerHTML = `<strong>${points.length} point(s) found:</strong><br>` +
-                    points.slice(0, 10).map((p, i) => `P${i + 1}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`).join('<br>');
+                pointInfo.innerHTML = '<strong>' + intersectionPoints.length + ' point(s) found:</strong><br>' +
+                    intersectionPoints.slice(0, 10).map((p, i) => 'P' + (i + 1) + ': (' + p.x.toFixed(2) + ', ' + p.y.toFixed(2) + ')').join('<br>');
             }
         }
-        
+
+        function getPointAtScreenCoords(screenX, screenY) {
+            for (let i = 0; i < intersectionPoints.length; i++) {
+                const screen = worldToScreen(intersectionPoints[i].x, intersectionPoints[i].y);
+                const dx = screen.screenX - screenX;
+                const dy = screen.screenY - screenY;
+                if (Math.sqrt(dx * dx + dy * dy) < 10) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+
+            if (e.button === 2) {
+                viewState.isRightDragging = true;
+                viewState.lastMouseX = screenX;
+                viewState.lastMouseY = screenY;
+            } else {
+                const pointIndex = getPointAtScreenCoords(screenX, screenY);
+                if (pointIndex !== -1) {
+                    viewState.isDraggingPoint = true;
+                    viewState.draggedPointIndex = pointIndex;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+
+            if (viewState.isDraggingPoint && viewState.draggedPointIndex !== -1) {
+                const world = screenToWorld(screenX, screenY);
+                intersectionPoints[viewState.draggedPointIndex].x = world.x;
+                intersectionPoints[viewState.draggedPointIndex].y = world.y;
+                updateDisplay();
+            } else if (viewState.isRightDragging) {
+                const deltaX = screenX - viewState.lastMouseX;
+                const deltaY = screenY - viewState.lastMouseY;
+                viewState.panX += deltaX;
+                viewState.panY += deltaY;
+                viewState.lastMouseX = screenX;
+                viewState.lastMouseY = screenY;
+                updateDisplay();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            viewState.isDraggingPoint = false;
+            viewState.isRightDragging = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            viewState.isDraggingPoint = false;
+            viewState.isRightDragging = false;
+        });
+
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const oldZoom = viewState.zoom;
+            viewState.zoom *= 1 - e.deltaY * 0.001;
+            viewState.zoom = Math.max(0.5, Math.min(3, viewState.zoom));
+
+            const zoomRatio = viewState.zoom / oldZoom;
+            viewState.panX = mouseX - (mouseX - viewState.panX) * zoomRatio;
+            viewState.panY = mouseY - (mouseY - viewState.panY) * zoomRatio;
+
+            updateDisplay();
+        });
+
         document.getElementById('reset').addEventListener('click', () => {
             sliders.a1.value = '1';
             sliders.b1.value = '0';
@@ -573,25 +644,24 @@
             sliders.d1.value = '0';
             sliders.e1.value = '0';
             sliders.f1.value = '2';
-            
+
             sliders.a2.value = '0';
             sliders.b2.value = '1';
             sliders.c2.value = '-3';
             sliders.d2.value = '0';
             sliders.e2.value = '0';
             sliders.f2.value = '-2';
-            
-            sliders.zoom.value = '1';
-            sliders.panX.value = '0';
-            sliders.panY.value = '0';
-            
-            ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'zoom', 'panX', 'panY'].forEach(updateValueDisplay);
+
+            viewState.zoom = 1;
+            viewState.panX = 0;
+            viewState.panY = 0;
+
+            ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2'].forEach(updateValueDisplay);
             updateDisplay();
         });
-        
-        // Initial display
+
         updateDisplay();
-        ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'zoom', 'panX', 'panY'].forEach(updateValueDisplay);
+        ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2'].forEach(updateValueDisplay);
     </script>
 </body>
 </html>
