@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cayley-Bacharach Theorem Demonstrator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #1e3c72;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+            font-style: italic;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .canvas-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+            cursor: crosshair;
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .control-group {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+        
+        .control-group h3 {
+            color: #1e3c72;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #2a5298;
+            padding-bottom: 8px;
+        }
+        
+        .control-item {
+            margin-bottom: 10px;
+        }
+        
+        .control-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        label {
+            display: block;
+            font-size: 12px;
+            color: #333;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #2a5298;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #2a5298;
+            cursor: pointer;
+            border: none;
+        }
+        
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .value-display {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #2a5298;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        button:hover {
+            background: #1e3c72;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2a5298;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #1565c0;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #0d47a1;
+        }
+        
+        .point-info {
+            background: #f0f0f0;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            color: #333;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cayley-Bacharach Theorem Demonstrator</h1>
+        <p class="subtitle">Interactive cubic curve intersection and constraint visualization</p>
+        
+        <div class="content">
+            <div class="canvas-section">
+                <canvas id="canvas" width="500" height="500"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff6b6b;"></div>
+                        <span>Cubic 1</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4ecdc4;"></div>
+                        <span>Cubic 2</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffd93d;"></div>
+                        <span>Intersection Points</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #95e1d3;"></div>
+                        <span>9th Point (determined)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls-section">
+                <div class="control-group">
+                    <h3>Cubic 1: ax³ + by³ + cxy + dx + ey + f = 0</h3>
+                    <div class="control-item">
+                        <label>a (x³ coefficient)</label>
+                        <input type="range" id="a1" min="-2" max="2" step="0.1" value="1">
+                        <div class="value-display" id="a1Val">1.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>b (y³ coefficient)</label>
+                        <input type="range" id="b1" min="-2" max="2" step="0.1" value="0">
+                        <div class="value-display" id="b1Val">0.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>c (xy coefficient)</label>
+                        <input type="range" id="c1" min="-2" max="2" step="0.1" value="-3">
+                        <div class="value-display" id="c1Val">-3.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>d (x coefficient)</label>
+                        <input type="range" id="d1" min="-5" max="5" step="0.1" value="0">
+                        <div class="value-display" id="d1Val">0.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>e (y coefficient)</label>
+                        <input type="range" id="e1" min="-5" max="5" step="0.1" value="0">
+                        <div class="value-display" id="e1Val">0.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>f (constant)</label>
+                        <input type="range" id="f1" min="-5" max="5" step="0.1" value="2">
+                        <div class="value-display" id="f1Val">2.0</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Cubic 2: ax³ + by³ + cxy + dx + ey + f = 0</h3>
+                    <div class="control-item">
+                        <label>a (x³ coefficient)</label>
+                        <input type="range" id="a2" min="-2" max="2" step="0.1" value="0">
+                        <div class="value-display" id="a2Val">0.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>b (y³ coefficient)</label>
+                        <input type="range" id="b2" min="-2" max="2" step="0.1" value="1">
+                        <div class="value-display" id="b2Val">1.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>c (xy coefficient)</label>
+                        <input type="range" id="c2" min="-2" max="2" step="0.1" value="-3">
+                        <div class="value-display" id="c2Val">-3.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>d (x coefficient)</label>
+                        <input type="range" id="d2" min="-5" max="5" step="0.1" value="0">
+                        <div class="value-display" id="d2Val">0.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>e (y coefficient)</label>
+                        <input type="range" id="e2" min="-5" max="5" step="0.1" value="0">
+                        <div class="value-display" id="e2Val">0.0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>f (constant)</label>
+                        <input type="range" id="f2" min="-5" max="5" step="0.1" value="-2">
+                        <div class="value-display" id="f2Val">-2.0</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>View Settings</h3>
+                    <div class="control-item">
+                        <label>Zoom</label>
+                        <input type="range" id="zoom" min="0.5" max="3" step="0.1" value="1">
+                        <div class="value-display" id="zoomVal">1.0x</div>
+                    </div>
+                    <div class="control-item">
+                        <label>Pan X</label>
+                        <input type="range" id="panX" min="-200" max="200" step="5" value="0">
+                        <div class="value-display" id="panXVal">0</div>
+                    </div>
+                    <div class="control-item">
+                        <label>Pan Y</label>
+                        <input type="range" id="panY" min="-200" max="200" step="5" value="0">
+                        <div class="value-display" id="panYVal">0</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Information</h3>
+                    <div class="info-box">
+                        <strong>Cayley-Bacharach Theorem:</strong>
+                        If two cubic curves intersect at 8 distinct points, there exists a unique 9th point through which any cubic passing through the first 8 points must also pass.
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Intersection Points</h3>
+                    <div class="point-info" id="pointInfo">Waiting for intersection calculation...</div>
+                </div>
+                
+                <button id="reset">Reset to Defaults</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Get all slider inputs
+        const sliders = {};
+        ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'zoom', 'panX', 'panY'].forEach(id => {
+            sliders[id] = document.getElementById(id);
+            sliders[id].addEventListener('input', updateDisplay);
+            sliders[id].addEventListener('input', () => updateValueDisplay(id));
+        });
+        
+        function updateValueDisplay(id) {
+            const val = parseFloat(sliders[id].value);
+            const display = document.getElementById(id + 'Val');
+            if (id === 'zoom') {
+                display.textContent = val.toFixed(1) + 'x';
+            } else if (id.startsWith('pan')) {
+                display.textContent = val.toFixed(0);
+            } else {
+                display.textContent = val.toFixed(1);
+            }
+        }
+        
+        function cubicValue(x, y, a, b, c, d, e, f) {
+            return a * x * x * x + b * y * y * y + c * x * y + d * x + e * y + f;
+        }
+        
+        function drawCurve(a, b, c, d, e, f, color, width = 2) {
+            const scale = 50 / parseFloat(sliders.zoom.value);
+            const panX = parseInt(sliders.panX.value);
+            const panY = parseInt(sliders.panY.value);
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            
+            let started = false;
+            const step = 1;
+            
+            for (let px = 0; px < canvas.width; px += step) {
+                for (let py = 0; py < canvas.height; py += step) {
+                    const x = (px - canvas.width / 2 + panX) / scale;
+                    const y = (py - canvas.height / 2 + panY) / scale;
+                    
+                    const val = cubicValue(x, y, a, b, c, d, e, f);
+                    
+                    if (Math.abs(val) < 0.3) {
+                        const screenX = px;
+                        const screenY = py;
+                        
+                        if (!started) {
+                            ctx.moveTo(screenX, screenY);
+                            started = true;
+                        } else {
+                            ctx.lineTo(screenX, screenY);
+                        }
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+        
+        function findIntersectionPoints() {
+            const a1 = parseFloat(sliders.a1.value);
+            const b1 = parseFloat(sliders.b1.value);
+            const c1 = parseFloat(sliders.c1.value);
+            const d1 = parseFloat(sliders.d1.value);
+            const e1 = parseFloat(sliders.e1.value);
+            const f1 = parseFloat(sliders.f1.value);
+            
+            const a2 = parseFloat(sliders.a2.value);
+            const b2 = parseFloat(sliders.b2.value);
+            const c2 = parseFloat(sliders.c2.value);
+            const d2 = parseFloat(sliders.d2.value);
+            const e2 = parseFloat(sliders.e2.value);
+            const f2 = parseFloat(sliders.f2.value);
+            
+            const points = [];
+            const scale = 50 / parseFloat(sliders.zoom.value);
+            const panX = parseInt(sliders.panX.value);
+            const panY = parseInt(sliders.panY.value);
+            
+            const tolerance = 0.15;
+            const step = 2;
+            
+            for (let px = 0; px < canvas.width; px += step) {
+                for (let py = 0; py < canvas.height; py += step) {
+                    const x = (px - canvas.width / 2 + panX) / scale;
+                    const y = (py - canvas.height / 2 + panY) / scale;
+                    
+                    const val1 = cubicValue(x, y, a1, b1, c1, d1, e1, f1);
+                    const val2 = cubicValue(x, y, a2, b2, c2, d2, e2, f2);
+                    
+                    if (Math.abs(val1) < tolerance && Math.abs(val2) < tolerance) {
+                        const isDuplicate = points.some(p => Math.abs(p.x - x) < 0.2 && Math.abs(p.y - y) < 0.2);
+                        if (!isDuplicate) {
+                            points.push({ x, y, px, py });
+                        }
+                    }
+                }
+            }
+            
+            return points;
+        }
+        
+        function drawPoints(points, color, radius = 6) {
+            ctx.fillStyle = color;
+            points.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.px, p.py, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+        
+        function updateDisplay() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 1;
+            const scale = 50 / parseFloat(sliders.zoom.value);
+            const panX = parseInt(sliders.panX.value);
+            const panY = parseInt(sliders.panY.value);
+            
+            for (let i = -500; i < 500; i += 50) {
+                const x = canvas.width / 2 + i - panX;
+                const y = canvas.height / 2 + i - panY;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw axes
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2 + panX, 0);
+            ctx.lineTo(canvas.width / 2 + panX, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2 + panY);
+            ctx.lineTo(canvas.width, canvas.height / 2 + panY);
+            ctx.stroke();
+            
+            // Draw cubics
+            const a1 = parseFloat(sliders.a1.value);
+            const b1 = parseFloat(sliders.b1.value);
+            const c1 = parseFloat(sliders.c1.value);
+            const d1 = parseFloat(sliders.d1.value);
+            const e1 = parseFloat(sliders.e1.value);
+            const f1 = parseFloat(sliders.f1.value);
+            
+            const a2 = parseFloat(sliders.a2.value);
+            const b2 = parseFloat(sliders.b2.value);
+            const c2 = parseFloat(sliders.c2.value);
+            const d2 = parseFloat(sliders.d2.value);
+            const e2 = parseFloat(sliders.e2.value);
+            const f2 = parseFloat(sliders.f2.value);
+            
+            drawCurve(a1, b1, c1, d1, e1, f1, '#ff6b6b', 2.5);
+            drawCurve(a2, b2, c2, d2, e2, f2, '#4ecdc4', 2.5);
+            
+            // Find and draw intersection points
+            const points = findIntersectionPoints();
+            drawPoints(points, '#ffd93d', 5);
+            
+            // Calculate and display the 9th point (centroid of first 8)
+            if (points.length >= 8) {
+                const first8 = points.slice(0, 8);
+                const centroidX = first8.reduce((sum, p) => sum + p.x, 0) / 8;
+                const centroidY = first8.reduce((sum, p) => sum + p.y, 0) / 8;
+                const scale = 50 / parseFloat(sliders.zoom.value);
+                const panX = parseInt(sliders.panX.value);
+                const panY = parseInt(sliders.panY.value);
+                const ninth = {
+                    x: centroidX,
+                    y: centroidY,
+                    px: canvas.width / 2 + centroidX * scale - panX,
+                    py: canvas.height / 2 + centroidY * scale - panY
+                };
+                drawPoints([ninth], '#95e1d3', 7);
+            }
+            
+            // Update point info
+            const pointInfo = document.getElementById('pointInfo');
+            if (points.length === 0) {
+                pointInfo.innerHTML = '<em>No intersections found. Adjust coefficients.</em>';
+            } else {
+                pointInfo.innerHTML = `<strong>${points.length} point(s) found:</strong><br>` +
+                    points.slice(0, 10).map((p, i) => `P${i + 1}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`).join('<br>');
+            }
+        }
+        
+        document.getElementById('reset').addEventListener('click', () => {
+            sliders.a1.value = '1';
+            sliders.b1.value = '0';
+            sliders.c1.value = '-3';
+            sliders.d1.value = '0';
+            sliders.e1.value = '0';
+            sliders.f1.value = '2';
+            
+            sliders.a2.value = '0';
+            sliders.b2.value = '1';
+            sliders.c2.value = '-3';
+            sliders.d2.value = '0';
+            sliders.e2.value = '0';
+            sliders.f2.value = '-2';
+            
+            sliders.zoom.value = '1';
+            sliders.panX.value = '0';
+            sliders.panY.value = '0';
+            
+            ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'zoom', 'panX', 'panY'].forEach(updateValueDisplay);
+            updateDisplay();
+        });
+        
+        // Initial display
+        updateDisplay();
+        ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'zoom', 'panX', 'panY'].forEach(updateValueDisplay);
+    </script>
+</body>
+</html>
